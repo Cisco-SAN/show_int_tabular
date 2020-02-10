@@ -1,4 +1,4 @@
-# show_int_tabular
+# show_int_tabular</b>
 MDS show interface script that gives a tabular output of the show interface counters in the following categories:
 
 show_int_tabular
