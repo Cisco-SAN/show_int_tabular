@@ -1,6 +1,7 @@
-<b># show_int_tabular</b>
-<b>MDS show interface script that gives a tabular output of the show interface counters in the following categories:</b>
-<b></b>
+# show_int_tabular
+
+MDS show interface script that gives a tabular output of the show interface counters in the following categories:
+
 show_int_tabular</b>
 </b>
 positional arguments:</b>
