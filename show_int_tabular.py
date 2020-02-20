@@ -4,6 +4,8 @@
 # Copyright (c) 2017 by Cisco Systems, Inc.  #
 #
 # 02/20/2019 Edward Mazurek    Created
+#
+# 02/15/2020 Edward Mazurek    Added support for FC port-channels
 ##############################################################
 
 import sys
@@ -26,7 +28,7 @@ def validateArgs (args) :
         try :
             intf_range = args.fc_interface
         except ValueError:
-            print "Please enter a valid fc interface, interface range or interface list"
+            print "Please enter a valid fc or port-channel interface, interface range or interface list"
             return False
    else:
        intf_range = ''
@@ -38,7 +40,7 @@ global intf_range
 # argument parsing
 parser = argparse.ArgumentParser(prog='show_int_tabular', description='show_int_tabular')
 parser.add_argument('--version', action='version', help='version', version='%(prog)s 1.0')
-parser.add_argument('fc_interface', nargs='*', default = '', help='fc interface, interface range or interface list')
+parser.add_argument('fc_interface', nargs='*', default = '', help='fc interface, port-channel interface, interface range or interface list')
 parser.add_argument('--statistics', action="store_true", dest='type_statistics', help = 'Display statistics (non errors).')
 parser.add_argument('--physical-errors', action="store_true",  dest='type_physical_errors', help = 'Display physical errors. Default')
 parser.add_argument('--congestion-errors', action="store_true",  dest='type_congestion_errors', help = 'Display congestion errors')
@@ -81,7 +83,7 @@ if args.filter_e_port | args.filter_f_port | args.filter_np_port | args.filter_e
     show_int_brief_list = show_int_brief_str.splitlines()
     for line in show_int_brief_list:
         line_toks = line.split()
-        if line.startswith('fc') and len(line[2:].split('/')) == 2: 
+        if ((line.startswith('fc') and len(line[2:].split('/')) == 2) or line.startswith('port-channel')) and line_toks[1] == 'is':
             intf = line_toks[0]
             show_int_brief_dict[intf] = {}
             show_int_brief_dict[intf]['oper_mode'] = line_toks[6]
@@ -184,7 +186,7 @@ for line_entry in counter_list:
 #
 intf = ''
 for line in show_int_list:
-    if line.startswith('fc') and len(line[2:].split('/')) == 2: 
+    if ((line.startswith('fc') and len(line[2:].split('/')) == 2) or line.startswith('port-channel')):
         # mod_port = line[2:].split('/')
         #if len(mod_port) == 2 :
         #and mod_port[0].isdecimal() and mod_port[1].isdecimal():
