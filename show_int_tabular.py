@@ -1,12 +1,15 @@
 #!/usr/bin/env python
 
-##############################################################
+#####################################################################################################################################################################
 # Copyright (c) 2017 by Cisco Systems, Inc.  #
 #
 # 02/20/2019 Edward Mazurek    Created
 #
 # 02/15/2020 Edward Mazurek    Added support for FC port-channels
-##############################################################
+# 04/16/2020 Edward Mazurek    Added --errorsonly parameter
+# 04/16/2020 Edward Mazurek    Changed "--statistics" to "--general-stats", "--physical-errors" to "--link-stats" and "congestion-errors" to "--congestion-stats" 
+# 04/18/2020 Edward Mazurek    Added OLS, LRR, BB_SCs, BB_SCr to link stats and LR while active to congestion stats
+#####################################################################################################################################################################
 
 import sys
 sys.path.append('/isan/bin/cli-scripts/')
@@ -41,14 +44,15 @@ global intf_range
 parser = argparse.ArgumentParser(prog='show_int_tabular', description='show_int_tabular')
 parser.add_argument('--version', action='version', help='version', version='%(prog)s 1.0')
 parser.add_argument('fc_interface', nargs='*', default = '', help='fc interface, port-channel interface, interface range or interface list')
-parser.add_argument('--statistics', action="store_true", dest='type_statistics', help = 'Display statistics (non errors).')
-parser.add_argument('--physical-errors', action="store_true",  dest='type_physical_errors', help = 'Display physical errors. Default')
-parser.add_argument('--congestion-errors', action="store_true",  dest='type_congestion_errors', help = 'Display congestion errors')
+parser.add_argument('--general-stats', action="store_true", dest='type_statistics', help = 'Display general statistics (non errors).')
+parser.add_argument('--link-stats', action="store_true",  dest='type_physical_errors', help = 'Display physical link statistics. Default')
+parser.add_argument('--congestion-stats', action="store_true",  dest='type_congestion_errors', help = 'Display congestion statistics')
 parser.add_argument('--e', action="store_true", dest='filter_e_port', help='Display only (T)E ports in interface range or list')
 parser.add_argument('--f', action="store_true", dest='filter_f_port', help='Display only (T)F ports in interface range or list')
 parser.add_argument('--np', action="store_true", dest='filter_np_port', help='Display only (T)NP ports in interface range or list')
 parser.add_argument('--edge', action="store_true", dest='filter_edge_port', help='Display only logical-type edge ports in interface range or list')
 parser.add_argument('--core', action="store_true", dest='filter_core_port', help='Display only logical-type core ports in interface range or list')
+parser.add_argument('--errorsonly', action='store_true', dest='filter_errorsonly', help='Display only interfaces with non-zero counts.')
 #
 # Handle arguments
 #
@@ -70,9 +74,11 @@ else:
 
 #
 # Issue show interface brief if any filter is specified
-
+#
+# port_type_filter == True indicates one of the port types(e, f, np, core, edge) is requested
+#
 if args.filter_e_port | args.filter_f_port | args.filter_np_port | args.filter_edge_port | args.filter_core_port:
-    port_filter = True
+    port_type_filter = True
     show_int_brief_cmd = 'show interface ' + str(intf_range) + 'brief'
     try :
         show_int_brief_str = cli.cli(show_int_brief_cmd)
@@ -81,16 +87,22 @@ if args.filter_e_port | args.filter_f_port | args.filter_np_port | args.filter_e
         pass
     show_int_brief_dict = {}
     show_int_brief_list = show_int_brief_str.splitlines()
+    #print('show_int_brief_list: ' + str(len(show_int_brief_list)) + ' bytes')
     for line in show_int_brief_list:
+        #print('show interface brief line: ' + line)
         line_toks = line.split()
-        if ((line.startswith('fc') and len(line[2:].split('/')) == 2) or line.startswith('port-channel')) and line_toks[1] == 'is':
+        #if len(line_toks) >= 1:
+            #print('line_toks[0]:' + line_toks[0])
+            #print("line.startswith('fc'): " + str(line.startswith('fc')))
+            #print('split: ' + str(line_toks[0].split('/')))
+        if ((line.startswith('fc') and len(line_toks[0].split('/')) == 2) or line.startswith('port-channel')):
             intf = line_toks[0]
             show_int_brief_dict[intf] = {}
             show_int_brief_dict[intf]['oper_mode'] = line_toks[6]
             show_int_brief_dict[intf]['logical_type'] = line_toks[9]
-            #print('Adding intf: ' + intf + ' to show_int_brief_dict: oper_mode: ' + line_toks[6] + ' logical_type: ' + line_toks[9])
+            print('Adding intf: ' + intf + ' to show_int_brief_dict: oper_mode: ' + line_toks[6] + ' logical_type: ' + line_toks[9])
 else:
-    port_filter = False
+    port_type_filter = False
 #
 # Issue show interface counters detailed command
 #
@@ -110,36 +122,48 @@ intf_list = []
 show_int_list = show_int_str.splitlines()
 intf = ''
 #
-# --physical
+# Counter_list = [
+#                [number of tokens on line, [[Heading, [%variable_name, match keyword 1, match keyword 2, ..., match keyword n]]]],
+#                ...
+#                ]
+#
+# --link
 #
 if args.type_physical_errors:
+    header_line = 'Link Stats:'
     counter_list = [ 
-                    [9, [['Link Failures', ['%intf_link_failures', 'link', 'failures,']], ['Sync Losses', ['.', '.', '.', '%intf_sync_losses', 'sync' , 'losses,']], ['Signal Losses', ['.', '.', '.', '.', '.', '.','%intf_sig_loss', 'signal', 'losses']]]],
-                    [4, [['Invalid Tx Words', ['%intf_invalid_tx_words', 'invalid', 'transmission', 'words']]]],
-                    [6, [['Invalid CRCs', ['%intf_invalid_crcs', 'invalid', 'CRCs,']]]],
-
+                    [9, [['Link Failure', ['%intf_link_failures', 'link', 'failure,']], ['Sync Loss', ['.', '.', '.', '%intf_sync_losses', 'sync' , 'losses,']], ['Signal Loss', ['.', '.', '.', '.', '.', '.','%intf_sig_loss', 'signal', 'losses']]]],
+                    [4, [['Invalid Words', ['%intf_invalid_tx_words', 'invalid', 'transmission', 'words']]]],
+                    [6, [['Invalid CRC', ['%intf_invalid_crcs', 'invalid', 'CRCs,']]]],
                     [4, [['NOS Rx', ['%intf_nos_rx', 'non-operational', 'sequences', 'received']]]],
                     [4, [['NOS Tx', ['%intf_nos_tx', 'non-operational', 'sequences', 'transmitted']]]],
-                    [3, [['Framing Errors', ['%intf_framing_errors', 'framing', 'errors']]]],
+                    [5, [['OLS Rx', ['%intf_ols_rx', 'Offline', 'Sequence', 'errors', 'received']]]],
+                    [5, [['OLS Tx', ['%intf_ols_tx', 'Offline', 'Sequence', 'errors', 'transmitted']]]],
+                    [5, [['LRR Rx', ['%intf_lrr_rx', 'link', 'reset', 'responses', 'received']]]],
+                    [5, [['LRR Tx', ['%intf_lrr_tx', 'link', 'reset', 'responses', 'transmitted']]]],
+                    [3, [['Framing Error', ['%intf_framing_errors', 'framing', 'errors']]]],
                     [4, [['FEC corrected', ['%intf_fec_corrected', 'fec', 'corrected', 'blocks']]]],
                     [4, [['FEC uncorrected', ['%intf_fec_uncorrected', 'fec', 'uncorrected', 'blocks']]]],
+                    [11, [['BB_SCs', ['%intf_bbscs', 'BB_SCs', 'credit', 'resend', 'actions,']], ['BB_SCr', ['.', '.', '.', '.', '.', '%intf_bbscr', 'BB_SCr', 'Tx', 'credit', 'increment', 'actions']]]],
                     ]
 #
 # --congestion
 #
 elif args.type_congestion_errors:
+    header_line = 'Congestion Stats:'
     counter_list = [
                     [7, [['TBBZ', ['%intf_tbbz', 'Transmit',  'B2B', 'credit', 'transitions', 'to', 'zero']]]],
                     [7, [['RBBZ', ['%intf_rbbz', 'Receive', 'B2B', 'credit', 'transitions', 'to', 'zero']]]],
                     [9, [['TxWait', ['%intf_txwait', '2.5us', 'TxWait', 'due', 'to', 'lack', 'of', 'transmit', 'credits']]]],
                     [6, [['Timeout Discards', ['%intf_timeout_discards', 'timeout', 'discards,']], ['Credit Loss', ['.', '.', '.', '%intf_credit_loss', 'credit' , 'loss']]]],
-                    [5, [['LRR Rx', ['%intf_lrr_rx', 'link', 'reset', 'responses', 'received']]]],
-                    [5, [['LRR Tx', ['%intf_lrr_tx', 'link', 'reset', 'responses', 'transmitted']]]],
+                    [8, [['Active LR Rx', ['%intf_lr_rx_act', 'link', 'reset', 'received', 'while', 'link', 'is', 'active']]]],
+                    [8, [['Active LR Tx', ['%intf_lr_tx_act', 'link', 'reset', 'transmitted', 'while', 'link', 'is', 'active']]]],
                    ]
 #
 # --statistics
 #  
 else:
+    header_line = 'General Stats:'
     counter_list = [
 #                   [5, [['Frames Rx',['%intf_frames_received', 'frames,', '.', 'bytes', 'received']], ['Bytes Rx', ['.', '.', '%intf_bytes_received', 'bytes', 'received']]]], 
 #                   [5, [['Frames Tx', ['%intf_frames_transmitted', 'frames,', '.', 'bytes', 'transmitted']],   ['Bytes Tx', ['.', '.', '%intf_bytes_transmitted', 'bytes', 'transmitted']]]],
@@ -194,7 +218,7 @@ for line in show_int_list:
         #
         # Check if filtering is needed
         #
-        if port_filter:
+        if port_type_filter:
             include_intf = False
             if intf in show_int_brief_dict:
                 if args.filter_e_port: 
@@ -284,6 +308,7 @@ if show_int_counters_detail_dict :
     #
     for intf in intf_list:
         col_values = [intf]
+        intf_non_zero_count_found = False
         #
         # Build column values
         #
@@ -295,9 +320,13 @@ if show_int_counters_detail_dict :
                     if pattern_entry[0:1] == '%':
                         var_name = pattern_entry[1:]
                         col_values.append(show_int_counters_detail_dict[intf][var_name])
+                        if show_int_counters_detail_dict[intf][var_name] != '0':
+                            intf_non_zero_count_found = True
                         break
-        output_table.add_row(col_values)
+        if not args.filter_errorsonly or (args.filter_errorsonly and intf_non_zero_count_found):
+            output_table.add_row(col_values)
     #
     # All done print out table
+    print(header_line)
     output_table.title = 'show interface ' + str(intf_range) + ' counters detail'
     print output_table
