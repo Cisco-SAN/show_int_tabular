@@ -3,12 +3,15 @@
 #####################################################################################################################################################################
 # Copyright (c) 2017 by Cisco Systems, Inc.  #
 #
-# 02/20/2019 Edward Mazurek    Created
+# Date       Who               Version Description
+#----------- ----------------- ------- --------------------------------------------------------------------------------------------------------------------------
+# 02/20/2019 Edward Mazurek    V1.0    Created
 #
-# 02/15/2020 Edward Mazurek    Added support for FC port-channels
-# 04/16/2020 Edward Mazurek    Added --errorsonly parameter
-# 04/16/2020 Edward Mazurek    Changed "--statistics" to "--general-stats", "--physical-errors" to "--link-stats" and "congestion-errors" to "--congestion-stats" 
-# 04/18/2020 Edward Mazurek    Added OLS, LRR, BB_SCs, BB_SCr to link stats and LR while active to congestion stats
+# 02/15/2020 Edward Mazurek    V1.1    Added support for FC port-channels
+# 04/16/2020 Edward Mazurek    V1.2    Added --errorsonly parameter
+# 04/16/2020 Edward Mazurek    V1.3    Changed "--statistics" to "--general-stats", "--physical-errors" to "--link-stats" and "congestion-errors" to "--congestion-stats" 
+# 04/18/2020 Edward Mazurek    V1.4    Added OLS, LRR, BB_SCs, BB_SCr to link stats and LR while active to congestion stats
+# 04/20/2020 Edward Mazurek    V1.5    Added version in --help 
 #####################################################################################################################################################################
 
 import sys
@@ -41,7 +44,7 @@ def validateArgs (args) :
 ##############################################################################
 global intf_range
 # argument parsing
-parser = argparse.ArgumentParser(prog='show_int_tabular', description='show_int_tabular')
+parser = argparse.ArgumentParser(prog='show_int_tabular', description='show_int_tabular v1.5')
 parser.add_argument('--version', action='version', help='version', version='%(prog)s 1.0')
 parser.add_argument('fc_interface', nargs='*', default = '', help='fc interface, port-channel interface, interface range or interface list')
 parser.add_argument('--general-stats', action="store_true", dest='type_statistics', help = 'Display general statistics (non errors).')
