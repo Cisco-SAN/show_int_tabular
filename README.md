@@ -25,9 +25,7 @@ optional arguments:
   
   --sfp-stats           Display transceiver(SFP) statistics
   
-  --transceiver-detail-stats
-  
-                        Display transceiver(SFP) detailed statistics
+  --transceiver-detail-stats  Display transceiver(SFP) detailed statistics
                         
   --sfp-detail-stats    Display transceiver(SFP) detailed statistics
   
@@ -45,9 +43,7 @@ optional arguments:
   
   --outfile OUTFILE     Write output to file on bootflash on switch. If file exists already it will be overwritten.
   
-  --appendfile APPENDFILE
-  
-                        Append output to file on bootflash on switch. If file does not exist it will be created.
+  --appendfile APPENDFILE Append output to file on bootflash on switch. If file does not exist it will be created.
 
 
 **Sample Output:**
