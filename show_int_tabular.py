@@ -15,6 +15,9 @@
 # 04/21/2020 Edward Mazurek    v1.6    Added --transceiver-stats, --sfp-stats, --transceiver-detail-stats,  --sfp-detail-stats
 # 06/04/2020 Edward Mazurek    v1.7    Added support for the new format of the "show interface counters detailed" command in NX-OS 8.4(2)
 # 06/04/2020 Edward Mazurek    v1.7    Removed framing errors since HW does not increment this counter
+# 10/10/2020 Edward Mazurek    v1.8    Added --outfile --appendfile option to write and append to a file
+# 10/11/2020 Edward Mazurek    v1.8    Right justified counter columns
+# 10/11/2020 Edward Mazurek    v1.8    Fixed problem with 'NF' not being excluded with --errorsonly
 #####################################################################################################################################################################
 
 import sys
@@ -22,7 +25,7 @@ sys.path.append('/isan/bin/cli-scripts/')
 import argparse
 import json
 from prettytable import *
-
+import datetime
 import cli
 
 def validateArgs (args) : 
@@ -42,14 +45,19 @@ def validateArgs (args) :
             return False
    else:
        intf_range = ''
+       
+   if args.outfile and args.appendfile:
+       print "Both --outfile and --appendfile are used. These are mutually exclusive arguements, only one can be used at a time."
+       return False
+
    return True
 ##############################################################################
 # Main
 ##############################################################################
 global intf_range
 # argument parsing
-parser = argparse.ArgumentParser(prog='show_int_tabular', description='show_int_tabular v1.7')
-parser.add_argument('--version', action='version', help='version', version='%(prog)s 1.0')
+parser = argparse.ArgumentParser(prog='show_int_tabular', description='show_int_tabular version v1.8')
+parser.add_argument('--version', action='version', help='version', version='%(prog)s 1.8')
 parser.add_argument('fc_interface', nargs='*', default = '', help='fc interface, port-channel interface, interface range or interface list')
 parser.add_argument('--general-stats', action="store_true", dest='type_general_stats', help = 'Display general statistics (non errors).')
 parser.add_argument('--link-stats', action="store_true",  dest='type_link_stats', help = 'Display physical link statistics. Default')
@@ -64,6 +72,8 @@ parser.add_argument('--np', action="store_true", dest='filter_np_port', help='Di
 parser.add_argument('--edge', action="store_true", dest='filter_edge_port', help='Display only logical-type edge ports in interface range or list')
 parser.add_argument('--core', action="store_true", dest='filter_core_port', help='Display only logical-type core ports in interface range or list')
 parser.add_argument('--errorsonly', action='store_true', dest='filter_errorsonly', help='Display only interfaces with non-zero counts.')
+parser.add_argument('--outfile', help='Write output to file on bootflash on switch. If file exists already it will be overwritten.')
+parser.add_argument('--appendfile', help='Append output to file on bootflash on switch. If file does not exist it will be created.')
 
 #
 # Handle arguments
@@ -83,6 +93,32 @@ else:
 
 #if args.filter_e_port == True:
 #print('args.filter_e_port: ' + str(args.filter_e_port))
+
+#
+# outfile
+#
+outfile_name = ''
+if args.outfile != None:
+    outfile_name = '/bootflash/' + args.outfile
+    try:
+        outfile_handle = open(outfile_name,'w')
+    except Exception as e:
+        print('Invalid filename: "' + outfile_name + '". Open failed with {}'.format(e))
+        sys.exit(1)
+    
+#
+# appendfile
+#
+if args.appendfile != None:
+    outfile_name = '/bootflash/' + args.appendfile
+    try:
+        outfile_handle = open(outfile_name,'a')
+    except Exception as e:
+        print('Invalid filename: "' + outfile_name + '". Open failed with {}'.format(e))
+        sys.exit(1)
+    
+current_datetime = datetime.datetime.today().strftime('%Y/%m/%d %H:%M:%S')
+#print('Current date time: ' + current_datetime)
 
 #
 # Issue show interface brief if any filter is specified
@@ -513,7 +549,8 @@ if show_int_variables_dict :
     # Set columns to left justified
     #	
     for column_name in column_name_list:
-        output_table.align[column_name] = 'l'
+        output_table.align[column_name] = 'r'
+    output_table.align['Intf'] = 'l'
     #
     # Build each row in table
     #
@@ -542,13 +579,22 @@ if show_int_variables_dict :
                         if args.type_sfp_stats or args.type_sfp_detail_stats:
                             if var_value != 'NF' and ((var_value.find('.') != -1 and (var_value[-1:] == '-' or var_value[-1:] == '+')) or (var_value.isdigit() and var_value != '0')):
                                 intf_non_zero_count_found = True
-                        elif show_int_variables_dict[intf][var_name] != '0':
+                        elif show_int_variables_dict[intf][var_name] != '0' and show_int_variables_dict[intf][var_name] != 'NF':
                             intf_non_zero_count_found = True
                         break
         if not args.filter_errorsonly or (args.filter_errorsonly and intf_non_zero_count_found):
             output_table.add_row(col_values)
     #
     # All done print out table
-    print(header_line)
+    #
     output_table.title = 'show interface ' + str(intf_range) + ' counters detail'
-    print output_table
+    header_line = current_datetime + ' ' + header_line
+    if outfile_name == '':
+        print(header_line)
+        print output_table
+    else:
+        outfile_handle.write(header_line + '\n')
+        output_table_str = output_table.get_string()
+        outfile_handle.write(output_table_str)
+        outfile_handle.write('\n')
+        outfile_handle.close()
