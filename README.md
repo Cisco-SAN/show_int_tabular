@@ -5,7 +5,7 @@ MDS show interface script that gives a tabular output of the show interface coun
 
 show_int_tabular version v1.8
 
-positional arguments:
+positional arguments:\n
   fc_interface          fc interface, port-channel interface, interface range or interface list
 
 optional arguments:
