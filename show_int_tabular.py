@@ -18,13 +18,14 @@
 # 10/10/2020 Edward Mazurek    v1.8    Added --outfile --appendfile option to write and append to a file
 # 10/11/2020 Edward Mazurek    v1.8    Right justified counter columns
 # 10/11/2020 Edward Mazurek    v1.8    Fixed problem with 'NF' not being excluded with --errorsonly
+# 01/19/2021 Edward Mazurek    v1.9    Skinny up display with 2 line headers and variable width columns - eliminate prettytable
+# 01/19/2021 Edward Mazurek    v1.9    Minor changes to allow python3 execution 
 #####################################################################################################################################################################
 
 import sys
 sys.path.append('/isan/bin/cli-scripts/')
 import argparse
 import json
-from prettytable import *
 import datetime
 import cli
 
@@ -34,20 +35,20 @@ def validateArgs (args) :
        args.type_link_stats = True
        #print('Defaulting to link stats')
    elif  int(args.type_link_stats) + int(args.type_congestion_stats) + int(args.type_general_stats) + int(args.type_sfp_stats) + int(args.type_sfp_detail_stats) > 1:
-        print "\n Please choose a single type to display via --general-stats or --link-stats or --congestion-stats or --transceiver(sfp)-stats or --transceiver(sfp)-detail-stats\n"
+        print ("\n Please choose a single type to display via --general-stats or --link-stats or --congestion-stats or --transceiver(sfp)-stats or --transceiver(sfp)-detail-stats\n")
         return False
 
    if args.fc_interface :
         try :
             intf_range = args.fc_interface
         except ValueError:
-            print "Please enter a valid fc or port-channel interface, interface range or interface list"
+            print ("Please enter a valid fc or port-channel interface, interface range or interface list")
             return False
    else:
        intf_range = ''
        
    if args.outfile and args.appendfile:
-       print "Both --outfile and --appendfile are used. These are mutually exclusive arguements, only one can be used at a time."
+       print ("Both --outfile and --appendfile are used. These are mutually exclusive arguements, only one can be used at a time.")
        return False
 
    return True
@@ -56,8 +57,8 @@ def validateArgs (args) :
 ##############################################################################
 global intf_range
 # argument parsing
-parser = argparse.ArgumentParser(prog='show_int_tabular', description='show_int_tabular version v1.8')
-parser.add_argument('--version', action='version', help='version', version='%(prog)s 1.8')
+parser = argparse.ArgumentParser(prog='show_int_tabular', description='show_int_tabular version v1.9')
+parser.add_argument('--version', action='version', help='version', version='%(prog)s v1.9')
 parser.add_argument('fc_interface', nargs='*', default = '', help='fc interface, port-channel interface, interface range or interface list')
 parser.add_argument('--general-stats', action="store_true", dest='type_general_stats', help = 'Display general statistics (non errors).')
 parser.add_argument('--link-stats', action="store_true",  dest='type_link_stats', help = 'Display physical link statistics. Default')
@@ -215,116 +216,143 @@ if args.type_link_stats or args.type_congestion_stats or args.type_general_stats
     # --link-stats
     #
     if args.type_link_stats:
-        header_line = 'Link Stats:'
+        type_line = 'Link Stats:'
+        link_failures_col = ['Link','Failures']
+        sync_loss_col = ['Sync', 'Loss']
+        signal_loss_col = ['Signal','Loss']
+        invalid_words_col = ['Invalid','Words']
+        invalid_crcs_col = ['Invalid','CRCs']
+        nos_rx_col = ['NOS','Rx']
+        nos_tx_col = ['NOS','Tx']
+        ols_rx_col = ['OLS','Rx']
+        ols_tx_col = ['OLS','Tx']
+        lrr_rx_col = ['LRR','Rx']
+        lrr_tx_col = ['LRR','Tx']
+        fec_corrected_col = ['FEC','Corrected']
+        fec_uncorrected_col = ['FEC','Uncorrected']
+        bb_scs_col = ['','BB_SCs']
+        bb_scr_col = ['','BB_SCr']
+        
         if show_int_counter_detail_new:
             counter_list = [ 
-                            [[4], [['Link Failure', ['Rx', 'Link', 'failures:', '%intf_link_failures:']]]],
-                            [[4], [['Sync Loss', ['Rx', 'Sync' , 'losses:', '%intf_sync_losses']]]], 
-                            [[4], [['Signal Loss', ['Rx', 'Signal', 'losses:', '%intf_sig_loss']]]],
-                            [[5], [['Invalid Words', ['Rx', 'Invalid', 'transmission', 'words:', '%intf_invalid_tx_words']]]],
-                            [[4], [['Invalid CRC', ['Rx', 'Invalid', 'CRCs:', '%intf_invalid_crcs']]]],
-                            [[4], [['NOS Rx', ['Rx', 'Non-Operational', 'Sequences(NOS):', '%intf_nos_rx']]]],
-                            [[4], [['NOS Tx', ['Tx', 'Non-Operational', 'Sequences(NOS):', '%intf_nos_tx']]]],
-                            [[4], [['OLS Rx', ['Rx', 'Offline', 'Sequences(OLS):', '%intf_ols_rx']]]],
-                            [[4], [['OLS Tx', ['Tx', 'Offline', 'Sequences(OLS):', '%intf_ols_tx']]]],
-                            [[5], [['LRR Rx', ['Rx', 'Link', 'Reset', 'Responses(LRR):', '%intf_lrr_rx']]]],
-                            [[5], [['LRR Tx', ['Tx', 'Link', 'Reset', 'Responses(LRR):', '%intf_lrr_tx']]]],
-                            [[5], [['FEC corrected', ['Rx', 'FEC', 'corrected', 'blocks:', '%intf_fec_corrected']]]],
-                            [[5], [['FEC uncorrected', ['Rx', 'FEC', 'uncorrected', 'blocks:', '%intf_fec_uncorrected']]]],
-                            [[5], [['BB_SCs', ['BB_SCs', 'credit', 'resend', 'actions:', '%intf_bbscs']]]], 
-                            [[6], [['BB_SCr', ['BB_SCr', 'Tx', 'credit', 'increment', 'actions:', '%intf_bbscr']]]],
+                            [[4], [[link_failures_col, ['Rx', 'Link', 'failures:', '%intf_link_failures:']]]],
+                            [[4], [[sync_loss_col, ['Rx', 'Sync' , 'losses:', '%intf_sync_losses']]]], 
+                            [[4], [[signal_loss_col, ['Rx', 'Signal', 'losses:', '%intf_sig_loss']]]],
+                            [[5], [[invalid_words_col, ['Rx', 'Invalid', 'transmission', 'words:', '%intf_invalid_tx_words']]]],
+                            [[4], [[invalid_crcs_col, ['Rx', 'Invalid', 'CRCs:', '%intf_invalid_crcs']]]],
+                            [[4], [[nos_rx_col, ['Rx', 'Non-Operational', 'Sequences(NOS):', '%intf_nos_rx']]]],
+                            [[4], [[nos_tx_col, ['Tx', 'Non-Operational', 'Sequences(NOS):', '%intf_nos_tx']]]],
+                            [[4], [[ols_rx_col, ['Rx', 'Offline', 'Sequences(OLS):', '%intf_ols_rx']]]],
+                            [[4], [[ols_tx_col, ['Tx', 'Offline', 'Sequences(OLS):', '%intf_ols_tx']]]],
+                            [[5], [[lrr_rx_col, ['Rx', 'Link', 'Reset', 'Responses(LRR):', '%intf_lrr_rx']]]],
+                            [[5], [[lrr_tx_col, ['Tx', 'Link', 'Reset', 'Responses(LRR):', '%intf_lrr_tx']]]],
+                            [[5], [[fec_corrected_col, ['Rx', 'FEC', 'corrected', 'blocks:', '%intf_fec_corrected']]]],
+                            [[5], [[fec_uncorrected_col, ['Rx', 'FEC', 'uncorrected', 'blocks:', '%intf_fec_uncorrected']]]],
+                            [[5], [[bb_scs_col, ['BB_SCs', 'credit', 'resend', 'actions:', '%intf_bbscs']]]], 
+                            [[6], [[bb_scr_col, ['BB_SCr', 'Tx', 'credit', 'increment', 'actions:', '%intf_bbscr']]]],
                             ]
         
         else:
             counter_list = [ 
-                            [[9], [['Link Failure', ['%intf_link_failures', 'link', 'failures,']], ['Sync Loss', ['.', '.', '.', '%intf_sync_losses', 'sync' , 'losses,']], ['Signal Loss', ['.', '.', '.', '.', '.', '.','%intf_sig_loss', 'signal', 'losses']]]],
-                            [[4], [['Invalid Words', ['%intf_invalid_tx_words', 'invalid', 'transmission', 'words']]]],
-                            [[6], [['Invalid CRC', ['%intf_invalid_crcs', 'invalid', 'CRCs,']]]],
-                            [[4], [['NOS Rx', ['%intf_nos_rx', 'non-operational', 'sequences', 'received']]]],
-                            [[4], [['NOS Tx', ['%intf_nos_tx', 'non-operational', 'sequences', 'transmitted']]]],
-                            [[5], [['OLS Rx', ['%intf_ols_rx', 'Offline', 'Sequence', 'errors', 'received']]]],
-                            [[5], [['OLS Tx', ['%intf_ols_tx', 'Offline', 'Sequence', 'errors', 'transmitted']]]],
-                            [[5], [['LRR Rx', ['%intf_lrr_rx', 'link', 'reset', 'responses', 'received']]]],
-                            [[5], [['LRR Tx', ['%intf_lrr_tx', 'link', 'reset', 'responses', 'transmitted']]]],
-                            [[4], [['FEC corrected', ['%intf_fec_corrected', 'fec', 'corrected', 'blocks']]]],
-                            [[4], [['FEC uncorrected', ['%intf_fec_uncorrected', 'fec', 'uncorrected', 'blocks']]]],
-                            [[11], [['BB_SCs', ['%intf_bbscs', 'BB_SCs', 'credit', 'resend', 'actions,']], ['BB_SCr', ['.', '.', '.', '.', '.', '%intf_bbscr', 'BB_SCr', 'Tx', 'credit', 'increment', 'actions']]]],
+                            [[9], [[link_failures_col, ['%intf_link_failures', 'link', 'failures,']], [sync_loss_col, ['.', '.', '.', '%intf_sync_losses', 'sync' , 'losses,']], [signal_loss_col, ['.', '.', '.', '.', '.', '.','%intf_sig_loss', 'signal', 'losses']]]],
+                            [[4], [[invalid_words_col, ['%intf_invalid_tx_words', 'invalid', 'transmission', 'words']]]],
+                            [[6], [[invalid_crcs_col, ['%intf_invalid_crcs', 'invalid', 'CRCs,']]]],
+                            [[4], [[nos_rx_col, ['%intf_nos_rx', 'non-operational', 'sequences', 'received']]]],
+                            [[4], [[nos_tx_col, ['%intf_nos_tx', 'non-operational', 'sequences', 'transmitted']]]],
+                            [[5], [[ols_rx_col, ['%intf_ols_rx', 'Offline', 'Sequence', 'errors', 'received']]]],
+                            [[5], [[ols_tx_col, ['%intf_ols_tx', 'Offline', 'Sequence', 'errors', 'transmitted']]]],
+                            [[5], [[lrr_rx_col, ['%intf_lrr_rx', 'link', 'reset', 'responses', 'received']]]],
+                            [[5], [[lrr_tx_col, ['%intf_lrr_tx', 'link', 'reset', 'responses', 'transmitted']]]],
+                            [[4], [[fec_corrected_col, ['%intf_fec_corrected', 'fec', 'corrected', 'blocks']]]],
+                            [[4], [[fec_uncorrected_col, ['%intf_fec_uncorrected', 'fec', 'uncorrected', 'blocks']]]],
+                            [[11],[[bb_scs_col, ['%intf_bbscs', 'BB_SCs', 'credit', 'resend', 'actions,']], [bb_scr_col, ['.', '.', '.', '.', '.', '%intf_bbscr', 'BB_SCr', 'Tx', 'credit', 'increment', 'actions']]]],
                             ]
     #       
     # --congestion-stats
     #
     elif args.type_congestion_stats:
-        header_line = 'Congestion Stats:'
+        type_line = 'Congestion Stats:'
+        tbbz_col = ['','TBBZ']
+        rbbz_col = ['','RBBZ']
+        txwait_col = ['','TxWait']
+        timeout_discards_col = ['Timeout','Discards']
+        credit_loss_col = ['Credit','Loss']
+        active_lr_rx_col = ['Active','LR Rx']
+        active_lr_tx_col = ['Active','LR Tx']
+        lrr_rx_col = ['LRR','Rx']
+        lrr_tx_col = ['LRR','Tx']
         if show_int_counter_detail_new:
             counter_list = [
-                            [[7], [['TBBZ', ['Tx',  'B2B', 'credit', 'transitions', 'to', 'zero:', '%intf_tbbz']]]],
-                            [[7], [['RBBZ', ['Rx', 'B2B', 'credit', 'transitions', 'to', 'zero:', '%intf_rbbz']]]],
-                            [[9], [['TxWait', ['TxWait', '2.5us', 'due', 'to', 'lack', 'of', 'transmit', 'credits:', '%intf_txwait', ]]]],
-                            [[4], [['Timeout Discards', ['Timeout', 'discards:', '%intf_timeout_discards']]]], 
-                            [[4], [['Credit Loss', ['Tx', 'Credit' , 'loss:', '%intf_credit_loss']]]],
-                            [[8], [['Active LR Rx', ['Rx', 'Link', 'Reset(LR)', 'while', 'link', 'is', 'active:', '%intf_lr_rx_act']]]],
-                            [[8], [['Active LR Tx', ['Tx', 'Link', 'Reset(LR)', 'while', 'link', 'is', 'active:', '%intf_lr_tx_act']]]],
-                            [[5], [['LRR Rx', ['Rx', 'Link', 'Reset', 'Responses(LRR):', '%intf_lrr_rx']]]],
-                            [[5], [['LRR Tx', ['Tx', 'Link', 'Reset', 'Responses(LRR):', '%intf_lrr_tx']]]],
+                            [[7], [[tbbz_col, ['Tx',  'B2B', 'credit', 'transitions', 'to', 'zero:', '%intf_tbbz']]]],
+                            [[7], [[rbbz_col, ['Rx', 'B2B', 'credit', 'transitions', 'to', 'zero:', '%intf_rbbz']]]],
+                            [[9], [[txwait_col, ['TxWait', '2.5us', 'due', 'to', 'lack', 'of', 'transmit', 'credits:', '%intf_txwait', ]]]],
+                            [[4], [[timeout_discards_col, ['Timeout', 'discards:', '%intf_timeout_discards']]]], 
+                            [[4], [[credit_loss_col, ['Tx', 'Credit' , 'loss:', '%intf_credit_loss']]]],
+                            [[8], [[active_lr_rx_col, ['Rx', 'Link', 'Reset(LR)', 'while', 'link', 'is', 'active:', '%intf_lr_rx_act']]]],
+                            [[8], [[active_lr_tx_col, ['Tx', 'Link', 'Reset(LR)', 'while', 'link', 'is', 'active:', '%intf_lr_tx_act']]]],
+                            [[5], [[lrr_rx_col, ['Rx', 'Link', 'Reset', 'Responses(LRR):', '%intf_lrr_rx']]]],
+                            [[5], [[lrr_tx_col, ['Tx', 'Link', 'Reset', 'Responses(LRR):', '%intf_lrr_tx']]]],
                            ]
         else:
             counter_list = [
-                            [[7], [['TBBZ', ['%intf_tbbz', 'Transmit',  'B2B', 'credit', 'transitions', 'to', 'zero']]]],
-                            [[7], [['RBBZ', ['%intf_rbbz', 'Receive', 'B2B', 'credit', 'transitions', 'to', 'zero']]]],
-                            [[9], [['TxWait', ['%intf_txwait', '2.5us', 'TxWait', 'due', 'to', 'lack', 'of', 'transmit', 'credits']]]],
-                            [[6], [['Timeout Discards', ['%intf_timeout_discards', 'timeout', 'discards,']], ['Credit Loss', ['.', '.', '.', '%intf_credit_loss', 'credit' , 'loss']]]],
-                            [[8], [['Active LR Rx', ['%intf_lr_rx_act', 'link', 'reset', 'received', 'while', 'link', 'is', 'active']]]],
-                            [[8], [['Active LR Tx', ['%intf_lr_tx_act', 'link', 'reset', 'transmitted', 'while', 'link', 'is', 'active']]]],
-                            [[5], [['LRR Rx', ['%intf_lrr_rx', 'link', 'reset', 'responses', 'received']]]],
-                            [[5], [['LRR Tx', ['%intf_lrr_tx', 'link', 'reset', 'responses', 'transmitted']]]],
+                            [[7], [[tbbz_col, ['%intf_tbbz', 'Transmit',  'B2B', 'credit', 'transitions', 'to', 'zero']]]],
+                            [[7], [[rbbz_col, ['%intf_rbbz', 'Receive', 'B2B', 'credit', 'transitions', 'to', 'zero']]]],
+                            [[9], [[txwait_col, ['%intf_txwait', '2.5us', 'TxWait', 'due', 'to', 'lack', 'of', 'transmit', 'credits']]]],
+                            [[6], [[timeout_discards_col, ['%intf_timeout_discards', 'timeout', 'discards,']], [credit_loss_col, ['.', '.', '.', '%intf_credit_loss', 'credit' , 'loss']]]],
+                            [[8], [[active_lr_rx_col, ['%intf_lr_rx_act', 'link', 'reset', 'received', 'while', 'link', 'is', 'active']]]],
+                            [[8], [[active_lr_tx_col, ['%intf_lr_tx_act', 'link', 'reset', 'transmitted', 'while', 'link', 'is', 'active']]]],
+                            [[5], [[lrr_rx_col, ['%intf_lrr_rx', 'link', 'reset', 'responses', 'received']]]],
+                            [[5], [[lrr_tx_col, ['%intf_lrr_tx', 'link', 'reset', 'responses', 'transmitted']]]],
                            ]
     #
     # --general-stats
     #  
     else:
-        header_line = 'General Stats:'
+        type_line = 'General Stats:'
+        frames_rx_col = ['Frames','Rx']
+        frames_tx_col = ['Frames','Tx']
+        c3_frames_rx_col = ['C3 Frames','Rx']
+        c3_frames_tx_col = ['C3 Frames','Tx']
+        c2_frames_rx_col = ['C2 Frames','Rx']
+        c2_frames_tx_col = ['C2 Frames','Tx']
+        cf_frames_rx_col = ['CF Frames','Rx']
+        cf_frames_tx_col = ['CF Frames','Tx']
+        mcast_frames_rx_col = ['Mcast','Frames Rx']
+        mcast_frames_tx_col = ['Mcast','Frames Tx']
+        bcast_frames_rx_col = ['Bcast','Frames Rx']
+        bcast_frames_tx_col = ['Bcast','Frames Tx']
+        ucast_frames_rx_col = ['Ucast','Frames Rx']
+        ucast_frames_tx_col = ['Ucast','Frames Tx']
         if show_int_counter_detail_new:
             counter_list = [
-        #                   [5, [['Frames Rx',['%intf_frames_received', 'frames,', '.', 'bytes', 'received']], ['Bytes Rx', ['.', '.', '%intf_bytes_received', 'bytes', 'received']]]], 
-        #                   [5, [['Frames Tx', ['%intf_frames_transmitted', 'frames,', '.', 'bytes', 'transmitted']],   ['Bytes Tx', ['.', '.', '%intf_bytes_transmitted', 'bytes', 'transmitted']]]],
-        #                   [6, [['Class 3 Frames Rx', ['%intf_class_3_frames_received', 'class-3', 'frames,', '.', 'bytes', 'received']], ['Class 3 Bytes Rx', ['.', 'class-3', 'frames,', '%intf_class_3_bytes_received', 'bytes', 'received']]]],
-        #                   [6, [['Class 3 Frames Tx', ['%intf_class_3_frames_transmitted', 'class-3', 'frames,', '.', 'bytes', 'transmitted']], ['Class 3 Bytes Tx', ['.', 'class-3', 'frames,', '%intf_class_3_bytes_transmitted', 'bytes', 'transmitted']]]],
-        #                   [6, [['Class 2 Frames Rx', ['%intf_class_2_frames_received', 'class-2', 'frames,', '.', 'bytes', 'received']], ['Class 2 Bytes Rx', ['.', 'class-2', 'frames,', '%intf_class_2_bytes_received', 'bytes', 'received']]]],
-        #                   [6, [['Class 2 Frames Tx', ['%intf_class_2_frames_transmitted', 'class-2', 'frames,', '.', 'bytes', 'transmitted']], ['Class 2 Bytes Tx', ['.', 'class-2', 'frames,', '%intf_class_2_bytes_transmitted', 'bytes', 'transmitted']]]],
-                            [[4], [['Frames Rx',['Rx', 'total', 'frames:', '%intf_frames_received']]]], 
-                            [[4], [['Frames Tx', ['Tx', 'total', 'frames:', '%intf_frames_transmitted',]]]],
-                            [[4], [['C3 Frames Rx', ['Rx', 'class-3', 'frames:', '%intf_class_3_frames_received']]]],
-                            [[4], [['C3 Frames Tx', ['Tx', 'class-3', 'frames:', '%intf_class_3_frames_transmitted']]]],
-                            [[4], [['C2 Frames Rx', ['Rx', 'class-2', 'frames:', '%intf_class_2_frames_received']]]],
-                            [[4], [['C2 Frames Tx', ['Tx', 'class-2', 'frames:', '%intf_class_2_frames_transmitted']]]],
-                            [[4], [['CF Frames Rx', ['Rx', 'class-f', 'frames:', '%intf_class_f_frames_received']]]],
-                            [[4], [['CF Frames Tx', ['Tx', 'class-f', 'frames:', '%intf_class_f_frames_transmitted']]]],
-                            [[4], [['Mcast Frames Rx', ['Rx', 'total', 'multicast:', '%intf_multicast_frames_received',]]]], 
-                            [[4], [['Mcast Frames Tx', ['Tx', 'total', 'multicast:', '%intf_multicast_frames_transmitted']]]],
-                            [[4], [['Bcast Frames Rx', ['Rx', 'total', 'broadcast:', '%intf_broadcast_frames_received',]]]], 
-                            [[4], [['Bcast Frames Tx', ['Tx', 'total', 'broadcast:', '%intf_broadcast_frames_transmitted']]]],
-                            [[4], [['Ucast Frames Rx', ['Rx', 'total', 'unicast:', '%intf_unicast_frames_received',]]]], 
-                            [[4], [['Ucast Frames Tx', ['Tx', 'total', 'unicast:', '%intf_unicast_frames_transmitted']]]],
+                            [[4], [[frames_rx_col, ['Rx', 'total', 'frames:', '%intf_frames_received']]]], 
+                            [[4], [[frames_tx_col, ['Tx', 'total', 'frames:', '%intf_frames_transmitted',]]]],
+                            [[4], [[c3_frames_rx_col, ['Rx', 'class-3', 'frames:', '%intf_class_3_frames_received']]]],
+                            [[4], [[c3_frames_tx_col, ['Tx', 'class-3', 'frames:', '%intf_class_3_frames_transmitted']]]],
+                            [[4], [[c2_frames_rx_col, ['Rx', 'class-2', 'frames:', '%intf_class_2_frames_received']]]],
+                            [[4], [[c2_frames_tx_col, ['Tx', 'class-2', 'frames:', '%intf_class_2_frames_transmitted']]]],
+                            [[4], [[cf_frames_rx_col, ['Rx', 'class-f', 'frames:', '%intf_class_f_frames_received']]]],
+                            [[4], [[cf_frames_tx_col, ['Tx', 'class-f', 'frames:', '%intf_class_f_frames_transmitted']]]],
+                            [[4], [[mcast_frames_rx_col, ['Rx', 'total', 'multicast:', '%intf_multicast_frames_received',]]]], 
+                            [[4], [[mcast_frames_tx_col, ['Tx', 'total', 'multicast:', '%intf_multicast_frames_transmitted']]]],
+                            [[4], [[bcast_frames_rx_col, ['Rx', 'total', 'broadcast:', '%intf_broadcast_frames_received',]]]], 
+                            [[4], [[bcast_frames_tx_col, ['Tx', 'total', 'broadcast:', '%intf_broadcast_frames_transmitted']]]],
+                            [[4], [[ucast_frames_rx_col, ['Rx', 'total', 'unicast:', '%intf_unicast_frames_received',]]]], 
+                            [[4], [[ucast_frames_tx_col, ['Tx', 'total', 'unicast:', '%intf_unicast_frames_transmitted']]]],
                            ]
         else:
             counter_list = [
-        #                   [5, [['Frames Rx',['%intf_frames_received', 'frames,', '.', 'bytes', 'received']], ['Bytes Rx', ['.', '.', '%intf_bytes_received', 'bytes', 'received']]]], 
-        #                   [5, [['Frames Tx', ['%intf_frames_transmitted', 'frames,', '.', 'bytes', 'transmitted']],   ['Bytes Tx', ['.', '.', '%intf_bytes_transmitted', 'bytes', 'transmitted']]]],
-        #                   [6, [['Class 3 Frames Rx', ['%intf_class_3_frames_received', 'class-3', 'frames,', '.', 'bytes', 'received']], ['Class 3 Bytes Rx', ['.', 'class-3', 'frames,', '%intf_class_3_bytes_received', 'bytes', 'received']]]],
-        #                   [6, [['Class 3 Frames Tx', ['%intf_class_3_frames_transmitted', 'class-3', 'frames,', '.', 'bytes', 'transmitted']], ['Class 3 Bytes Tx', ['.', 'class-3', 'frames,', '%intf_class_3_bytes_transmitted', 'bytes', 'transmitted']]]],
-        #                   [6, [['Class 2 Frames Rx', ['%intf_class_2_frames_received', 'class-2', 'frames,', '.', 'bytes', 'received']], ['Class 2 Bytes Rx', ['.', 'class-2', 'frames,', '%intf_class_2_bytes_received', 'bytes', 'received']]]],
-        #                   [6, [['Class 2 Frames Tx', ['%intf_class_2_frames_transmitted', 'class-2', 'frames,', '.', 'bytes', 'transmitted']], ['Class 2 Bytes Tx', ['.', 'class-2', 'frames,', '%intf_class_2_bytes_transmitted', 'bytes', 'transmitted']]]],
-                            [[5], [['Frames Rx',['%intf_frames_received', 'frames,', '.', 'bytes', 'received']]]], 
-                            [[5], [['Frames Tx', ['%intf_frames_transmitted', 'frames,', '.', 'bytes', 'transmitted']]]],
-                            [[6], [['C3 Frames Rx', ['%intf_class_3_frames_received', 'class-3', 'frames,', '.', 'bytes', 'received']]]],
-                            [[6], [['C3 Frames Tx', ['%intf_class_3_frames_transmitted', 'class-3', 'frames,', '.', 'bytes', 'transmitted']]]],
-                            [[6], [['C2 Frames Rx', ['%intf_class_2_frames_received', 'class-2', 'frames,', '.', 'bytes', 'received']]]],
-                            [[6], [['C2 Frames Tx', ['%intf_class_2_frames_transmitted', 'class-2', 'frames,', '.', 'bytes', 'transmitted']]]],
-                            [[6], [['CF Frames Rx', ['%intf_class_f_frames_received', 'class-f', 'frames,', '.', 'bytes', 'received']]]],
-                            [[6], [['CF Frames Tx', ['%intf_class_f_frames_transmitted', 'class-f', 'frames,', '.', 'bytes', 'transmitted']]]],
-                            [[6], [['Mcast Frames Rx', ['%intf_multicast_frames_received', 'multicast', 'packets', 'received,']], ['Mcast Frames Tx', ['.', 'multicast', 'packets', '.', '%intf_multicast_frames_transmitted', 'transmitted']]]],
-                            [[6], [['Bcast Frames Rx', ['%intf_broadcast_frames_received', 'broadcast', 'packets', 'received,']], ['Bcast Frames Tx', ['.', 'broadcast', 'packets', '.', '%intf_broadcast_frames_transmitted', 'transmitted']]]],
-                            [[6], [['Ucast Frames Rx', ['%intf_unicast_frames_received', 'unicast', 'packets', 'received,']], ['Ucast Frames Tx', ['.', 'unicast', 'packets', '.', '%intf_unicast_frames_transmitted', 'transmitted']]]],
+                            [[5], [[frames_rx_col, ['%intf_frames_received', 'frames,', '.', 'bytes', 'received']]]], 
+                            [[5], [[frames_tx_col, ['%intf_frames_transmitted', 'frames,', '.', 'bytes', 'transmitted']]]],
+                            [[6], [[c3_frames_rx_col, ['%intf_class_3_frames_received', 'class-3', 'frames,', '.', 'bytes', 'received']]]],
+                            [[6], [[c3_frames_tx_col, ['%intf_class_3_frames_transmitted', 'class-3', 'frames,', '.', 'bytes', 'transmitted']]]],
+                            [[6], [[c2_frames_rx_col, ['%intf_class_2_frames_received', 'class-2', 'frames,', '.', 'bytes', 'received']]]],
+                            [[6], [[c2_frames_tx_col, ['%intf_class_2_frames_transmitted', 'class-2', 'frames,', '.', 'bytes', 'transmitted']]]],
+                            [[6], [[cf_frames_rx_col, ['%intf_class_f_frames_received', 'class-f', 'frames,', '.', 'bytes', 'received']]]],
+                            [[6], [[cf_frames_tx_col, ['%intf_class_f_frames_transmitted', 'class-f', 'frames,', '.', 'bytes', 'transmitted']]]],
+                            [[6], [[mcast_frames_rx_col, ['%intf_multicast_frames_received', 'multicast', 'packets', 'received,']], [mcast_frames_tx_col, ['.', 'multicast', 'packets', '.', '%intf_multicast_frames_transmitted', 'transmitted']]]],
+                            [[6], [[bcast_frames_rx_col, ['%intf_broadcast_frames_received', 'broadcast', 'packets', 'received,']], [bcast_frames_tx_col, ['.', 'broadcast', 'packets', '.', '%intf_broadcast_frames_transmitted', 'transmitted']]]],
+                            [[6], [[ucast_frames_rx_col, ['%intf_unicast_frames_received', 'unicast', 'packets', 'received,']], [ucast_frames_tx_col, ['.', 'unicast', 'packets', '.', '%intf_unicast_frames_transmitted', 'transmitted']]]],
                            ]
       
 #
@@ -347,6 +375,17 @@ else:
     intf_list = []
     show_int_list = show_int_str.splitlines()
     intf = ''
+    name_col = ['','Name']
+    pid_col = ['Cisco','PID']
+    serial_col = ['Serial','Number']
+    sync_col = ['','Sync?']
+    bit_rate_col = ['Nominal','Bit Rate']
+    temp_col = ['','Temp']
+    voltage_col = ['','Voltage']
+    current_col = ['','Current']
+    txpower_col = ['Tx','Power']
+    rxpower_col = ['Rx','Power']
+    txfault_col = ['Tx','Fault']
     if args.type_sfp_stats:
         
         #
@@ -360,17 +399,17 @@ else:
         #
         # --transceiver-stats
         #
-        header_line = 'Transceiver(SFP) Stats:'
+        type_line = 'Transceiver(SFP) Stats:'
         counter_list = [ 
-                        [[3], [['Name', ['Name', 'is', '%intf_sfp_name']]]],
-                        [[4], [['PID', ['Cisco', 'pid', 'is', '%intf_sfp_pid']]]],
-                        [[13,14], [['Sync?', ['.', '.', '.', '.', '.', '%intf_sfp_sync', 'sync', 'exists,']], ['&', ['.', '.', '.', '.', '.', '.','&intf_sfp_sync', 'sync', 'exists,']], ['&', ['.', '.', '.', '.', '.', '.', '&intf_sfp_sync', 'sync', 'state,']]]],
-                        [[4,5], [['Temp', ['Temperature', ':', '%intf_sfp_temp']], ['&', ['Temperature', ':', '.', '&intf_sfp_temp']], ['&', ['Temperature', ':', '.', '.', '&intf_sfp_temp']]]],
-                        [[4,5], [['Voltage', ['Voltage', ':', '%intf_sfp_volt']], ['&', ['Voltage', ':', '.', '&intf_sfp_volt']], ['&', ['Voltage', ':', '.', '.', '&intf_sfp_volt']]]],
-                        [[4,5], [['Current', ['Current', ':', '%intf_sfp_curr']], ['&', ['Current', ':', '.', '&intf_sfp_curr']], ['&', ['Current', ':', '.', '.', '&intf_sfp_curr']]]],
-                        [[6,7], [['TxPower', ['Optical', 'Tx', 'Power', ':', '%intf_sfp_tx_power']], ['&', ['Optical', 'Tx', 'Power', ':', '.', '&intf_sfp_tx_power']], ['&', ['Optical', 'Tx', 'Power', ':', '.', '.', '&intf_sfp_tx_power']]]],
-                        [[6,7], [['RxPower', ['Optical', 'Rx', 'Power', ':', '%intf_sfp_rx_power']], ['&', ['Optical', 'Rx', 'Power', ':', '.', '&intf_sfp_rx_power']], ['&', ['Optical', 'Rx', 'Power', ':', '.', '.', '&intf_sfp_rx_power']]]],
-                        [[5], [['TxFault', ['Tx', 'Fault', 'count', ':', '%intf_sfp_tx_fault']]]],
+                        [[3], [[name_col, ['Name', 'is', '%intf_sfp_name']]]],
+                        [[4], [[pid_col, ['Cisco', 'pid', 'is', '%intf_sfp_pid']]]],
+                        [[13,14], [[sync_col, ['.', '.', '.', '.', '.', '%intf_sfp_sync', 'sync', 'exists,']], ['&', ['.', '.', '.', '.', '.', '.','&intf_sfp_sync', 'sync', 'exists,']], ['&', ['.', '.', '.', '.', '.', '.', '&intf_sfp_sync', 'sync', 'state,']]]],
+                        [[4,5], [[temp_col, ['Temperature', ':', '%intf_sfp_temp']], ['&', ['Temperature', ':', '.', '&intf_sfp_temp']], ['&', ['Temperature', ':', '.', '.', '&intf_sfp_temp']]]],
+                        [[4,5], [[voltage_col, ['Voltage', ':', '%intf_sfp_volt']], ['&', ['Voltage', ':', '.', '&intf_sfp_volt']], ['&', ['Voltage', ':', '.', '.', '&intf_sfp_volt']]]],
+                        [[4,5], [[current_col, ['Current', ':', '%intf_sfp_curr']], ['&', ['Current', ':', '.', '&intf_sfp_curr']], ['&', ['Current', ':', '.', '.', '&intf_sfp_curr']]]],
+                        [[6,7], [[txpower_col, ['Optical', 'Tx', 'Power', ':', '%intf_sfp_tx_power']], ['&', ['Optical', 'Tx', 'Power', ':', '.', '&intf_sfp_tx_power']], ['&', ['Optical', 'Tx', 'Power', ':', '.', '.', '&intf_sfp_tx_power']]]],
+                        [[6,7], [[rxpower_col, ['Optical', 'Rx', 'Power', ':', '%intf_sfp_rx_power']], ['&', ['Optical', 'Rx', 'Power', ':', '.', '&intf_sfp_rx_power']], ['&', ['Optical', 'Rx', 'Power', ':', '.', '.', '&intf_sfp_rx_power']]]],
+                        [[5], [[txfault_col, ['Tx', 'Fault', 'count', ':', '%intf_sfp_tx_fault']]]],
                         
      
                        ]
@@ -380,19 +419,19 @@ else:
     # --sfp-detail-stats
     #         
     else:
-        header_line = 'Transceiver(SFP) Detail Stats:'
+        type_line = 'Transceiver(SFP) Detail Stats:'
         counter_list = [ 
-                        [[3], [['Name', ['Name', 'is', '%intf_sfp_name']]]],
-                        [[4], [['PID', ['Cisco', 'pid', 'is', '%intf_sfp_pid']]]],
-                        [[4], [['Serial', ['Serial', 'number', 'is', '%intf_sfp_sn']]]],
-                        [[13,14], [['Sync?', ['.', '.', '.', '.', '.', '%intf_sfp_sync', 'sync', 'exists,']], ['&', ['.', '.', '.', '.', '.', '.','&intf_sfp_sync', 'sync', 'exists,']], ['&', ['.', '.', '.', '.', '.', '.', '&intf_sfp_sync', 'sync', 'state,']]]],
-                        [[6], [['Bit Rate', ['Nominal', 'bit', 'rate', 'is', '%intf_sfp_brate']], ['&', ['Nominal', 'bit', 'rate', 'is', '.', '&intf_sfp_brate']]]], 
-                        [[4,5], [['Temp', ['Temperature', ':', '%intf_sfp_temp']], ['&', ['Temperature', ':', '.', '&intf_sfp_temp']], ['&', ['Temperature', ':', '.', '.', '&intf_sfp_temp']]]],
-                        [[4,5], [['Voltage', ['Voltage', ':', '%intf_sfp_volt']], ['&', ['Voltage', ':', '.', '&intf_sfp_volt']], ['&', ['Voltage', ':', '.', '.', '&intf_sfp_volt']]]],
-                        [[4,5], [['Current', ['Current', ':', '%intf_sfp_curr']], ['&', ['Current', ':', '.', '&intf_sfp_curr']], ['&', ['Current', ':', '.', '.', '&intf_sfp_curr']]]],
-                        [[6,7], [['TxPower', ['Optical', 'Tx', 'Power', ':', '%intf_sfp_tx_power']], ['&', ['Optical', 'Tx', 'Power', ':', '.', '&intf_sfp_tx_power']], ['&', ['Optical', 'Tx', 'Power', ':', '.', '.', '&intf_sfp_tx_power']]]],
-                        [[6,7], [['RxPower', ['Optical', 'Rx', 'Power', ':', '%intf_sfp_rx_power']], ['&', ['Optical', 'Rx', 'Power', ':', '.', '&intf_sfp_rx_power']], ['&', ['Optical', 'Rx', 'Power', ':', '.', '.', '&intf_sfp_rx_power']]]],
-                        [[5], [['TxFault', ['Tx', 'Fault', 'count', ':', '%intf_sfp_tx_fault']]]],
+                        [[3], [[name_col, ['Name', 'is', '%intf_sfp_name']]]],
+                        [[4], [[pid_col, ['Cisco', 'pid', 'is', '%intf_sfp_pid']]]],
+                        [[4], [[serial_col, ['Serial', 'number', 'is', '%intf_sfp_sn']]]],
+                        [[13,14], [[sync_col, ['.', '.', '.', '.', '.', '%intf_sfp_sync', 'sync', 'exists,']], ['&', ['.', '.', '.', '.', '.', '.','&intf_sfp_sync', 'sync', 'exists,']], ['&', ['.', '.', '.', '.', '.', '.', '&intf_sfp_sync', 'sync', 'state,']]]],
+                        [[6], [[bit_rate_col, ['Nominal', 'bit', 'rate', 'is', '%intf_sfp_brate']], ['&', ['Nominal', 'bit', 'rate', 'is', '.', '&intf_sfp_brate']]]], 
+                        [[4,5], [[temp_col, ['Temperature', ':', '%intf_sfp_temp']], ['&', ['Temperature', ':', '.', '&intf_sfp_temp']], ['&', ['Temperature', ':', '.', '.', '&intf_sfp_temp']]]],
+                        [[4,5], [[voltage_col, ['Voltage', ':', '%intf_sfp_volt']], ['&', ['Voltage', ':', '.', '&intf_sfp_volt']], ['&', ['Voltage', ':', '.', '.', '&intf_sfp_volt']]]],
+                        [[4,5], [[current_col, ['Current', ':', '%intf_sfp_curr']], ['&', ['Current', ':', '.', '&intf_sfp_curr']], ['&', ['Current', ':', '.', '.', '&intf_sfp_curr']]]],
+                        [[6,7], [[txpower_col, ['Optical', 'Tx', 'Power', ':', '%intf_sfp_tx_power']], ['&', ['Optical', 'Tx', 'Power', ':', '.', '&intf_sfp_tx_power']], ['&', ['Optical', 'Tx', 'Power', ':', '.', '.', '&intf_sfp_tx_power']]]],
+                        [[6,7], [[rxpower_col, ['Optical', 'Rx', 'Power', ':', '%intf_sfp_rx_power']], ['&', ['Optical', 'Rx', 'Power', ':', '.', '&intf_sfp_rx_power']], ['&', ['Optical', 'Rx', 'Power', ':', '.', '.', '&intf_sfp_rx_power']]]],
+                        [[5], [[txfault_col, ['Tx', 'Fault', 'count', ':', '%intf_sfp_tx_fault']]]],
                         
                        ]
 
@@ -404,15 +443,22 @@ magnatude_list = [[1000000000000, 'TB'], [1000000000, 'GB'], [1000000, 'MB'], [1
 #
 default_intf_dict = {}
 #
-# Build column_name_list
+# Build column_names_list
+# Build column_widths_list
 # Initialize default variable name values to 'NF' in default_intf_dict
 #
-column_name_list = ['Intf']
+# column_name_list[0] is the first row of column headers
+# column_name_list[1] is the second row of column headers
+#
+column_names_list = [[''],['Intf']]
+column_widths_list = [max(len(column_names_list[0][0]),len(column_names_list[1][0]))]
 for line_entry in counter_list:
     for counter_entry in line_entry[1]:
         column_name = counter_entry[0]
         if column_name != '&':
-            column_name_list.append(column_name)
+            column_names_list[0].append(column_name[0])
+            column_names_list[1].append(column_name[1])
+            column_widths_list.append(max(len(column_name[0]),len(column_name[1])))
             for pattern_entry in counter_entry[1]:
                 if pattern_entry[0:1] == '%':
                     var_name = pattern_entry[1:]
@@ -535,22 +581,21 @@ for line in show_int_list:
                         #print('Setting show_int_variables_dict[' + intf + '][' + var_name + ']: ' + show_int_variables_dict[intf][var_name]) 
                         
 
-if show_int_variables_dict :
+if show_int_variables_dict:
     #
     # Build table
+    #
+    # Initialize table with the two column headings
     #
     # For each counter, find pattern and set key name and values
     # Append each variable value to col_values
     # Once interface is completely processes add the row to the table
     #
-    output_table = PrettyTable(column_name_list)
-    
+    output_table_list = [column_names_list[0],column_names_list[1]]
+    column_number_list = range(0,len(column_names_list[0]))
     #
     # Set columns to left justified
     #	
-    for column_name in column_name_list:
-        output_table.align[column_name] = 'r'
-    output_table.align['Intf'] = 'l'
     #
     # Build each row in table
     #
@@ -583,18 +628,101 @@ if show_int_variables_dict :
                             intf_non_zero_count_found = True
                         break
         if not args.filter_errorsonly or (args.filter_errorsonly and intf_non_zero_count_found):
-            output_table.add_row(col_values)
+            output_table_list.append(col_values)
+            #
+            # Update column_widths_list with maximum length of each variable in that new column
+            #
+            for column_num in column_number_list:
+                column_widths_list[column_num] = max(column_widths_list[column_num], len(col_values[column_num]))
+            
     #
-    # All done print out table
+    # All done 
+    # Create header_trailer and seperator lines
+    # print out table
     #
-    output_table.title = 'show interface ' + str(intf_range) + ' counters detail'
-    header_line = current_datetime + ' ' + header_line
+    header_trailer = ' '
+    seperator = '+'
+    for column_width in column_widths_list:
+        header_trailer += ''.ljust(column_width + 1,'-') + '-+'
+        seperator += ''.ljust(column_width + 1,'-') + '-+'
+        
+    header_trailer = header_trailer[:-1]
+    
+    clock_type_line = current_datetime + ' ' + type_line
+    columns = len(output_table_list[0])
     if outfile_name == '':
-        print(header_line)
-        print output_table
+        print(clock_type_line)
+        print(header_trailer)
+        #
+        # Print two header lines - left justify
+        #
+        for row_num in [0,1]:
+            #header_str = '| ' + output_table_list[row_num][0].ljust(column_widths_list[0] +1)
+            header_str = ''
+            for column_num in column_number_list:
+                header_str += '| ' + output_table_list[row_num][column_num].ljust(column_widths_list[column_num] +1)
+            header_str += '|'
+            print(header_str)
+        #
+        # print seperator line after header lines
+        #
+        print(seperator)
+        #
+        # print intf data lines
+        #
+        for row_num in range(2,len(output_table_list)):
+            #
+            # Print intf left justified
+            #
+            row_str = '| ' + output_table_list[row_num][0].ljust(column_widths_list[0] +1)
+            #
+            # Print intf's data columns
+            #
+            for column_num in column_number_list[1:]:
+                row_str += '| ' + output_table_list[row_num][column_num].rjust(column_widths_list[column_num] +1)
+            row_str += '|'
+            print(row_str)
+        #
+        # print trailer line
+        #
+        print(header_trailer)
+    #
+    # Handle outfile
+    #
     else:
-        outfile_handle.write(header_line + '\n')
-        output_table_str = output_table.get_string()
-        outfile_handle.write(output_table_str)
+        outfile_handle.write(clock_type_line + '\n')
+        outfile_handle.write(header_trailer + '\n')
+        #
+        # Print two header lines - left justify
+        #
+        for row_num in [0,1]:
+            row_str = ''
+            for column_num in column_number_list:
+                row_str += '| ' + output_table_list[row_num][column_num].ljust(column_widths_list[column_num] +1)
+            row_str += '|'
+            outfile_handle.write(row_str + '\n')
+        #
+        # print seperator line after header lines
+        #
+        outfile_handle.write(seperator + '\n')
+        #
+        # print intf data lines
+        #
+        for row_num in range(2,len(output_table_list)):
+            #
+            # Print intf left justified
+            #
+            row_str = '| ' + output_table_list[row_num][0].ljust(column_widths_list[0] +1)
+            #
+            # Print intf's data columns
+            #
+            for column_num in column_number_list[1:]:
+                row_str += '| ' + output_table_list[row_num][column_num].rjust(column_widths_list[column_num] +1)
+            row_str += '|'
+            outfile_handle.write(row_str + '\n')
+        #
+        # print trailer line
+        #
+        outfile_handle.write(header_trailer + '\n')
         outfile_handle.write('\n')
         outfile_handle.close()
