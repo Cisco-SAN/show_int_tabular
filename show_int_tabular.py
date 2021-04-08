@@ -20,6 +20,7 @@
 # 10/11/2020 Edward Mazurek    v1.8    Fixed problem with 'NF' not being excluded with --errorsonly
 # 01/19/2021 Edward Mazurek    v1.9    Skinny up display with 2 line headers and variable width columns - eliminate prettytable
 # 01/19/2021 Edward Mazurek    v1.9    Minor changes to allow python3 execution 
+# 04/07/2021 Edward Mazurek    v1.10   Add description option
 #####################################################################################################################################################################
 
 import sys
@@ -57,8 +58,8 @@ def validateArgs (args) :
 ##############################################################################
 global intf_range
 # argument parsing
-parser = argparse.ArgumentParser(prog='show_int_tabular', description='show_int_tabular version v1.9')
-parser.add_argument('--version', action='version', help='version', version='%(prog)s v1.9')
+parser = argparse.ArgumentParser(prog='show_int_tabular', description='show_int_tabular version v1.10')
+parser.add_argument('--version', action='version', help='version', version='%(prog)s v1.10')
 parser.add_argument('fc_interface', nargs='*', default = '', help='fc interface, port-channel interface, interface range or interface list')
 parser.add_argument('--general-stats', action="store_true", dest='type_general_stats', help = 'Display general statistics (non errors).')
 parser.add_argument('--link-stats', action="store_true",  dest='type_link_stats', help = 'Display physical link statistics. Default')
@@ -75,6 +76,7 @@ parser.add_argument('--core', action="store_true", dest='filter_core_port', help
 parser.add_argument('--errorsonly', action='store_true', dest='filter_errorsonly', help='Display only interfaces with non-zero counts.')
 parser.add_argument('--outfile', help='Write output to file on bootflash on switch. If file exists already it will be overwritten.')
 parser.add_argument('--appendfile', help='Append output to file on bootflash on switch. If file does not exist it will be created.')
+parser.add_argument('--d', action="store_true", dest='include_description', help='Include port description if found')
 
 #
 # Handle arguments
@@ -159,6 +161,27 @@ if args.filter_e_port | args.filter_f_port | args.filter_np_port | args.filter_e
 else:
     port_type_filter = False
     
+#
+# Issue show interface description command if include_description is specified
+#
+if args.include_description:
+    show_int_brief_cmd = 'show interface ' + str(intf_range) + 'description'
+    try :
+        show_int_brief_str = cli.cli(show_int_brief_cmd)
+    except :
+        print('Error issuing ' + show_int_brief_cmd + ' command...')
+        pass
+    show_int_descr_dict = {}
+    show_int_descr_list = show_int_brief_str.splitlines()
+    #print('show_int_descr_list: ' + str(len(show_int_descr_list)) + ' bytes')
+    max_descr_len = len('Description')
+    for line in show_int_descr_list:
+        line_toks = line.split()
+        if len(line_toks) >= 2:
+            intf = line_toks[0]
+            descr = ' '.join(line_toks[1:])
+            show_int_descr_dict[intf] = descr
+            max_descr_len = max(max_descr_len, len(descr))
 #
 # Determine NX-OS version
 # At 8.4(2) the output of the "show interface counters details" command has completely changed
@@ -464,7 +487,7 @@ for line_entry in counter_list:
                     var_name = pattern_entry[1:]
                     default_intf_dict[var_name] = 'NF'
                     break
-
+                    
 #
 # Go through show interface counters detailed output and build show_int_variables_dict dictionary for each interface
 #
@@ -645,6 +668,12 @@ if show_int_variables_dict:
     for column_width in column_widths_list:
         header_trailer += ''.ljust(column_width + 1,'-') + '-+'
         seperator += ''.ljust(column_width + 1,'-') + '-+'
+    #
+    # Add Description if requested
+    #
+    if args.include_description:
+        header_trailer += ''.ljust(max_descr_len + 1,'-') + '-+'
+        seperator += ''.ljust(max_descr_len + 1,'-') + '-+'
         
     header_trailer = header_trailer[:-1]
     
@@ -661,6 +690,10 @@ if show_int_variables_dict:
             header_str = ''
             for column_num in column_number_list:
                 header_str += '| ' + output_table_list[row_num][column_num].ljust(column_widths_list[column_num] +1)
+            if args.include_description and row_num == 0:
+                header_str += '| ' + ''.ljust(max_descr_len +1)
+            if args.include_description and row_num == 1:
+                header_str += '| ' + 'Description'.ljust(max_descr_len +1)
             header_str += '|'
             print(header_str)
         #
@@ -680,6 +713,11 @@ if show_int_variables_dict:
             #
             for column_num in column_number_list[1:]:
                 row_str += '| ' + output_table_list[row_num][column_num].rjust(column_widths_list[column_num] +1)
+            #
+            # Include description if request (left justified) 
+            #
+            if args.include_description:
+                row_str += '| ' + show_int_descr_dict[output_table_list[row_num][0]].ljust(max_descr_len +1)
             row_str += '|'
             print(row_str)
         #
