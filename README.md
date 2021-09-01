@@ -3,7 +3,7 @@
 
 MDS show interface script that gives a tabular output of the show interface counters in the following categories:
 
-show_int_tabular version v1.8
+show_int_tabular version v1.10
 
 positional arguments:
 
@@ -44,6 +44,8 @@ optional arguments:
   --outfile OUTFILE     Write output to file on bootflash on switch. If file exists already it will be overwritten.
   
   --appendfile APPENDFILE Append output to file on bootflash on switch. If file does not exist it will be created.
+  
+  --d                   Include port description if found
 
 
 **Sample Output:**
