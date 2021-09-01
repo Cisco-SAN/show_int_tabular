@@ -21,6 +21,8 @@
 # 01/19/2021 Edward Mazurek    v1.9    Skinny up display with 2 line headers and variable width columns - eliminate prettytable
 # 01/19/2021 Edward Mazurek    v1.9    Minor changes to allow python3 execution 
 # 04/07/2021 Edward Mazurek    v1.10   Add description option
+# 07/19/2021 Edward Mazurek    v1.11   Add Percentage TxWait for last 1s/1m/1h/72h:  
+# 09/01/2021 Edward Mazurek    v1.11   Fixed problem with DS-SFP-FC32G-LW where there is a space
 #####################################################################################################################################################################
 
 import sys
@@ -58,8 +60,8 @@ def validateArgs (args) :
 ##############################################################################
 global intf_range
 # argument parsing
-parser = argparse.ArgumentParser(prog='show_int_tabular', description='show_int_tabular version v1.10')
-parser.add_argument('--version', action='version', help='version', version='%(prog)s v1.10')
+parser = argparse.ArgumentParser(prog='show_int_tabular', description='show_int_tabular version v1.11')
+parser.add_argument('--version', action='version', help='version', version='%(prog)s v1.11')
 parser.add_argument('fc_interface', nargs='*', default = '', help='fc interface, port-channel interface, interface range or interface list')
 parser.add_argument('--general-stats', action="store_true", dest='type_general_stats', help = 'Display general statistics (non errors).')
 parser.add_argument('--link-stats', action="store_true",  dest='type_link_stats', help = 'Display physical link statistics. Default')
@@ -298,6 +300,7 @@ if args.type_link_stats or args.type_congestion_stats or args.type_general_stats
         tbbz_col = ['','TBBZ']
         rbbz_col = ['','RBBZ']
         txwait_col = ['','TxWait']
+        txwait_1s1m1h72h_col = ['TxWait % last', '1s/1m/1h/72h']
         timeout_discards_col = ['Timeout','Discards']
         credit_loss_col = ['Credit','Loss']
         active_lr_rx_col = ['Active','LR Rx']
@@ -309,6 +312,8 @@ if args.type_link_stats or args.type_congestion_stats or args.type_general_stats
                             [[7], [[tbbz_col, ['Tx',  'B2B', 'credit', 'transitions', 'to', 'zero:', '%intf_tbbz']]]],
                             [[7], [[rbbz_col, ['Rx', 'B2B', 'credit', 'transitions', 'to', 'zero:', '%intf_rbbz']]]],
                             [[9], [[txwait_col, ['TxWait', '2.5us', 'due', 'to', 'lack', 'of', 'transmit', 'credits:', '%intf_txwait', ]]]],
+                            [[6], [[txwait_1s1m1h72h_col, ['Percentage', 'TxWait', 'for', 'last', '1s/1m/1h/72h:', '%intf_txwait_1s1m1h72h']]]],
+                            [[8], [['&', ['Percentage', 'TxWait', 'not', 'available', 'for', 'last', '1s/1m/1h/72h:', '%intf_txwait_1s1m1h72h']]]],
                             [[4], [[timeout_discards_col, ['Timeout', 'discards:', '%intf_timeout_discards']]]], 
                             [[4], [[credit_loss_col, ['Tx', 'Credit' , 'loss:', '%intf_credit_loss']]]],
                             [[8], [[active_lr_rx_col, ['Rx', 'Link', 'Reset(LR)', 'while', 'link', 'is', 'active:', '%intf_lr_rx_act']]]],
@@ -321,6 +326,7 @@ if args.type_link_stats or args.type_congestion_stats or args.type_general_stats
                             [[7], [[tbbz_col, ['%intf_tbbz', 'Transmit',  'B2B', 'credit', 'transitions', 'to', 'zero']]]],
                             [[7], [[rbbz_col, ['%intf_rbbz', 'Receive', 'B2B', 'credit', 'transitions', 'to', 'zero']]]],
                             [[9], [[txwait_col, ['%intf_txwait', '2.5us', 'TxWait', 'due', 'to', 'lack', 'of', 'transmit', 'credits']]]],
+                            [[8], [[txwait_1s1m1h72h_col, ['Percentage', 'TxWait', 'not', 'available', 'for', 'last', '1s/1m/1h/72h:', '%intf_txwait_1s1m1h72h']]]],
                             [[6], [[timeout_discards_col, ['%intf_timeout_discards', 'timeout', 'discards,']], [credit_loss_col, ['.', '.', '.', '%intf_credit_loss', 'credit' , 'loss']]]],
                             [[8], [[active_lr_rx_col, ['%intf_lr_rx_act', 'link', 'reset', 'received', 'while', 'link', 'is', 'active']]]],
                             [[8], [[active_lr_tx_col, ['%intf_lr_tx_act', 'link', 'reset', 'transmitted', 'while', 'link', 'is', 'active']]]],
@@ -425,7 +431,8 @@ else:
         type_line = 'Transceiver(SFP) Stats:'
         counter_list = [ 
                         [[3], [[name_col, ['Name', 'is', '%intf_sfp_name']]]],
-                        [[4], [[pid_col, ['Cisco', 'pid', 'is', '%intf_sfp_pid']]]],
+                        [[4,5], [[pid_col, ['Cisco', 'pid', 'is', '%intf_sfp_pid']]]],    # LW SFPs have a space in the PID: Cisco pid is DS-SFP-FC16G-SW - Need tokens either 4 or 5 because - See CSCvz53902
+                        [[5], [['&', ['Cisco', 'pid', 'is', '.', '&intf_sfp_pid']]]],     # LW SFPs have a space in the PID: Cisco pid is DS-SFP-FC16G-SW - This line appends the 'LW'
                         [[13,14], [[sync_col, ['.', '.', '.', '.', '.', '%intf_sfp_sync', 'sync', 'exists,']], ['&', ['.', '.', '.', '.', '.', '.','&intf_sfp_sync', 'sync', 'exists,']], ['&', ['.', '.', '.', '.', '.', '.', '&intf_sfp_sync', 'sync', 'state,']]]],
                         [[4,5], [[temp_col, ['Temperature', ':', '%intf_sfp_temp']], ['&', ['Temperature', ':', '.', '&intf_sfp_temp']], ['&', ['Temperature', ':', '.', '.', '&intf_sfp_temp']]]],
                         [[4,5], [[voltage_col, ['Voltage', ':', '%intf_sfp_volt']], ['&', ['Voltage', ':', '.', '&intf_sfp_volt']], ['&', ['Voltage', ':', '.', '.', '&intf_sfp_volt']]]],
@@ -445,7 +452,8 @@ else:
         type_line = 'Transceiver(SFP) Detail Stats:'
         counter_list = [ 
                         [[3], [[name_col, ['Name', 'is', '%intf_sfp_name']]]],
-                        [[4], [[pid_col, ['Cisco', 'pid', 'is', '%intf_sfp_pid']]]],
+                        [[4,5], [[pid_col, ['Cisco', 'pid', 'is', '%intf_sfp_pid']]]],      # LW SFPs have a space in the PID: Cisco pid is DS-SFP-FC16G-SW - Need tokens either 4 or 5 because - See CSCvz53902
+                        [[5], [['&', ['Cisco', 'pid', 'is', '.', '&intf_sfp_pid']]]],     # LW SFPs have a space in the PID: Cisco pid is DS-SFP-FC16G-SW - This line appends the 'LW'
                         [[4], [[serial_col, ['Serial', 'number', 'is', '%intf_sfp_sn']]]],
                         [[13,14], [[sync_col, ['.', '.', '.', '.', '.', '%intf_sfp_sync', 'sync', 'exists,']], ['&', ['.', '.', '.', '.', '.', '.','&intf_sfp_sync', 'sync', 'exists,']], ['&', ['.', '.', '.', '.', '.', '.', '&intf_sfp_sync', 'sync', 'state,']]]],
                         [[6], [[bit_rate_col, ['Nominal', 'bit', 'rate', 'is', '%intf_sfp_brate']], ['&', ['Nominal', 'bit', 'rate', 'is', '.', '&intf_sfp_brate']]]], 
