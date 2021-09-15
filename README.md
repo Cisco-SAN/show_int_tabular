@@ -3,7 +3,7 @@
 
 MDS show interface script that gives a tabular output of the show interface counters in the following categories:
 
-show_int_tabular version v1.10
+show_int_tabular version v1.11
 
 positional arguments:
 
