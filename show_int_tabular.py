@@ -23,6 +23,7 @@
 # 04/07/2021 Edward Mazurek    v1.10   Add description option
 # 07/19/2021 Edward Mazurek    v1.11   Add Percentage TxWait for last 1s/1m/1h/72h:  
 # 09/01/2021 Edward Mazurek    v1.11   Fixed problem with DS-SFP-FC32G-LW where there is a space
+# 09/14/2021 Edward Mazurek    v1.12   Fixed problem with timeout discards in new format show interface counters details
 #####################################################################################################################################################################
 
 import sys
@@ -234,7 +235,7 @@ if args.type_link_stats or args.type_congestion_stats or args.type_general_stats
     intf = ''
     #
     # Counter_list = [
-    #                [number of tokens on line, [[Heading, [%variable_name, match keyword 1, match keyword 2, ..., match keyword n]]]],
+    #                [[number of tokens on line], [[Heading, [%variable_name, match keyword 1, match keyword 2, ..., match keyword n]]]],
     #                ...
     #                ]
     #
@@ -314,7 +315,7 @@ if args.type_link_stats or args.type_congestion_stats or args.type_general_stats
                             [[9], [[txwait_col, ['TxWait', '2.5us', 'due', 'to', 'lack', 'of', 'transmit', 'credits:', '%intf_txwait', ]]]],
                             [[6], [[txwait_1s1m1h72h_col, ['Percentage', 'TxWait', 'for', 'last', '1s/1m/1h/72h:', '%intf_txwait_1s1m1h72h']]]],
                             [[8], [['&', ['Percentage', 'TxWait', 'not', 'available', 'for', 'last', '1s/1m/1h/72h:', '%intf_txwait_1s1m1h72h']]]],
-                            [[4], [[timeout_discards_col, ['Timeout', 'discards:', '%intf_timeout_discards']]]], 
+                            [[4], [[timeout_discards_col, ['Tx', 'Timeout', 'discards:', '%intf_timeout_discards']]]], 
                             [[4], [[credit_loss_col, ['Tx', 'Credit' , 'loss:', '%intf_credit_loss']]]],
                             [[8], [[active_lr_rx_col, ['Rx', 'Link', 'Reset(LR)', 'while', 'link', 'is', 'active:', '%intf_lr_rx_act']]]],
                             [[8], [[active_lr_tx_col, ['Tx', 'Link', 'Reset(LR)', 'while', 'link', 'is', 'active:', '%intf_lr_tx_act']]]],
@@ -441,7 +442,6 @@ else:
                         [[6,7], [[rxpower_col, ['Optical', 'Rx', 'Power', ':', '%intf_sfp_rx_power']], ['&', ['Optical', 'Rx', 'Power', ':', '.', '&intf_sfp_rx_power']], ['&', ['Optical', 'Rx', 'Power', ':', '.', '.', '&intf_sfp_rx_power']]]],
                         [[5], [[txfault_col, ['Tx', 'Fault', 'count', ':', '%intf_sfp_tx_fault']]]],
                         
-     
                        ]
     
     #
@@ -494,6 +494,7 @@ for line_entry in counter_list:
                 if pattern_entry[0:1] == '%':
                     var_name = pattern_entry[1:]
                     default_intf_dict[var_name] = 'NF'
+                    #print('Setting default value for: ' + var_name + ' NF')
                     break
                     
 #
@@ -554,7 +555,7 @@ for line in show_int_list:
             #
             # Check if length matches
             #
-            #print('intf: ' + intf + ' len(toks): ' + str(len(toks)) + ' line_entry[1]: ' + str(line_entry[1]) + ' line: ' + line)
+            # print('intf: ' + intf + ' len(toks): ' + str(len(toks)) + ' line_entry[1]: ' + str(line_entry[1]) + ' line: ' + line)
             #
             # Allow two counts of tokens for '-' Warning and '--' Alarm which may or may not be present
             #            
@@ -569,8 +570,9 @@ for line in show_int_list:
                     #print('intf: ' + intf + ' counter_entry: ' + str(counter_entry))
                     pattern_match = False
                     for pattern_entry in counter_entry[1]:
+                        #if len(toks) >= idx:
+                        #    continue
                         #print('intf: ' + intf + ' toks[' + str(idx) + ']: "' + toks[idx] + '" pattern_entry: "' + str(pattern_entry) + '"')
-                        #continue
                         if pattern_entry == '.':
                             pass
                         elif pattern_entry.startswith('%'):
@@ -638,12 +640,15 @@ if show_int_variables_dict:
         #
         for line_entry in counter_list:
             for counter_entry in line_entry[1]:
-                #column_name = counter_entry[0]
+                column_name = counter_entry[0]
                 #column_name_list.append(column_name)
+                if column_name == '&':
+                    continue
                 for pattern_entry in counter_entry[1]:
                     if pattern_entry[0:1] == '%':
                         var_name = pattern_entry[1:]
                         var_value = show_int_variables_dict[intf][var_name]
+                        #print('intf: ' + intf + ' var_name: ' + var_name + ' var_value: ' + var_value)
                         col_values.append(var_value)
                         #
                         # The check for if a value is an "error" is different for sfp stats
@@ -652,10 +657,12 @@ if show_int_variables_dict:
                         # 1 - var_value is not equal to 'NF'
                         # 2 - var_value contains a decimal point '.' and there is a trailing '-' or '+'
                         # 3 - var_value is a decimal integer that is not zero
+                        # 4 - var_value is not 0%/0%/0%/0%
+                        #
                         if args.type_sfp_stats or args.type_sfp_detail_stats:
                             if var_value != 'NF' and ((var_value.find('.') != -1 and (var_value[-1:] == '-' or var_value[-1:] == '+')) or (var_value.isdigit() and var_value != '0')):
                                 intf_non_zero_count_found = True
-                        elif show_int_variables_dict[intf][var_name] != '0' and show_int_variables_dict[intf][var_name] != 'NF':
+                        elif show_int_variables_dict[intf][var_name] != '0' and show_int_variables_dict[intf][var_name] != 'NF' and show_int_variables_dict[intf][var_name] != '0%/0%/0%/0%':
                             intf_non_zero_count_found = True
                         break
         if not args.filter_errorsonly or (args.filter_errorsonly and intf_non_zero_count_found):
