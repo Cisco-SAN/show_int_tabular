@@ -3,7 +3,7 @@
 
 MDS show interface script that gives a tabular output of the show interface counters in the following categories:
 
-show_int_tabular version v1.12
+show_int_tabular version v1.13
 
 positional arguments:
 
@@ -29,6 +29,9 @@ optional arguments:
                         
   --sfp-detail-stats    Display transceiver(SFP) detailed statistics
   
+  --brief               Display interface brief values + description + peer
+                        pwwn + device-alias or switchname
+
   --e                   Display only (T)E ports in interface range or list
   
   --f                   Display only (T)F ports in interface range or list
